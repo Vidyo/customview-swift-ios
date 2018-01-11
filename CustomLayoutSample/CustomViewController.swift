@@ -2,13 +2,12 @@
 //  CustomViewController.swift
 //  CustomLayoutSample
 //
-//  Created by Sachin Hegde on 8/1/17.
-//  Copyright © 2017 Sachin Hegde. All rights reserved.
+//  Copyright © 2017 Vidyo. All rights reserved.
 //
 
 import UIKit
 
-class CustomViewController: UIViewController , VCIConnect , VCIRegisterLocalCameraEventListener , VCIRegisterRemoteCameraEventListener, VCIRegisterRemoteMicrophoneEventListener, VCIRegisterLocalMicrophoneEventListener, VCIRegisterLocalSpeakerEventListener, VCIRegisterParticipantEventListener {
+class CustomViewController: UIViewController , VCConnectorIConnect , VCConnectorIRegisterLocalCameraEventListener , VCConnectorIRegisterRemoteCameraEventListener, VCConnectorIRegisterRemoteMicrophoneEventListener, VCConnectorIRegisterLocalMicrophoneEventListener, VCConnectorIRegisterLocalSpeakerEventListener, VCConnectorIRegisterParticipantEventListener {
 
     // MARK: - Properties and variables
     
@@ -26,7 +25,7 @@ class CustomViewController: UIViewController , VCIConnect , VCIRegisterLocalCame
     var cameraMuted         = false
     var expandedSelfView    = false
     
-    let VIDYO_TOKEN         = "" // Get a valid token. It is recommended that you create short lived tokens on your applications server and then pass it down here. For details on how to get a token check out - https://developer.vidyo.io/documentation/4-1-15-7/getting-started#Tokens
+    let VIDYO_TOKEN         = "" // Get a valid token. It is recommended that you create short lived tokens on your applications server and then pass it down here. For details on how to get a token check out - https://developer.vidyo.io/documentation/4-1-19-7/getting-started#Tokens
     
     // MARK: - Viewcontroller override methods
     
@@ -47,9 +46,9 @@ class CustomViewController: UIViewController , VCIConnect , VCIRegisterLocalCame
         selfView.addGestureRecognizer(tap)
         
         // Create VidyoIO connector object
-        connector = VCConnector(nil,                                    // For custom handling of views, set this to nil
-                                viewStyle: .default,                    // Passing default,
-                                remoteParticipants: 1,                    // In this sample I am only showing maximum of 4 participants at a time
+        connector = VCConnector(nil, // For custom handling of views, set this to nil
+                                viewStyle: .default, // Passing default,
+                                remoteParticipants: 15, // This argument does not have any meaning in a custom layout.
                                 logFileFilter: UnsafePointer("info@VidyoClient info@VidyoConnector warning"),
                                 logFileName: UnsafePointer(""),
                                 userData: 0)
@@ -77,9 +76,15 @@ class CustomViewController: UIViewController , VCIConnect , VCIRegisterLocalCame
         self.refreshUI()
         connector?.connect("prod.vidyo.io",
                            token: VIDYO_TOKEN,
-                           displayName: "Sachin",
+                           displayName: "Demo User",
                            resourceId: "demoRoom",
-                           connect: self)
+                           connectorIConnect: self)
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        connector?.disable()
+        connector = nil
     }
     
     override func didReceiveMemoryWarning() {
@@ -181,6 +186,9 @@ class CustomViewController: UIViewController , VCIConnect , VCIRegisterLocalCame
     
     func onFailure(_ reason: VCConnectorFailReason) {
         print("Connection failed \(reason)")
+        DispatchQueue.main.async {
+            self.dismiss(animated: true, completion: nil)
+        }
     }
     
     func onDisconnected(_ reason: VCConnectorDisconnectReason) {

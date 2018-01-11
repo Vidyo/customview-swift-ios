@@ -2,8 +2,7 @@
 //  HomeViewController.swift
 //  CustomLayoutSample
 //
-//  Created by Sachin Hegde on 8/1/17.
-//  Copyright © 2017 Sachin Hegde. All rights reserved.
+//  Copyright © 2017 Vidyo. All rights reserved.
 //
 
 import UIKit
@@ -24,6 +23,7 @@ class HomeViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
+        // Initialize the VidyoClient Library
         VCConnectorPkg.vcInitialize()
         
         // Dismissing keyboard on tap
@@ -100,6 +100,4 @@ class HomeViewController: UIViewController {
             vc.resourceID = self.resourceIdTextField.text!
         }
     }
-    
-
 }

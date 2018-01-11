@@ -2,8 +2,7 @@
 //  RemoteViewsHelper.swift
 //  CustomLayoutSample
 //  Helper class to initialize remote view size and location
-//  Created by Sachin Hegde on 8/3/17.
-//  Copyright © 2017 Sachin Hegde. All rights reserved.
+//  Copyright © 2017 Vidyo. All rights reserved.
 //
 
 

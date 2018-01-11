@@ -2,13 +2,12 @@
 //  CompositedViewController.swift
 //  CustomLayoutSample
 //
-//  Created by Sachin Hegde on 7/24/17.
-//  Copyright © 2017 Sachin Hegde. All rights reserved.
+//  Copyright © 2017 Vidyo. All rights reserved.
 //
 
 import UIKit
 
-class CompositedViewController : UIViewController, VCIConnect {
+class CompositedViewController : UIViewController, VCConnectorIConnect {
 
     // MARK: - Properties and variables
 
@@ -21,7 +20,7 @@ class CompositedViewController : UIViewController, VCIConnect {
     var displayName     = ""
     var micMuted        = false
     var cameraMuted     = false
-    let VIDYO_TOKEN     = "" // Get a valid token. It is recommended that you create short lived tokens on your applications server and then pass it down here. For details on how to get a token check out - https://developer.vidyo.io/documentation/4-1-15-7/getting-started#Tokens
+    let VIDYO_TOKEN     = "" // Get a valid token. It is recommended that you create short lived tokens on your applications server and then pass it down here. For details on how to get a token check out - https://developer.vidyo.io/documentation/4-1-19-7/getting-started#Tokens
     
     required init?(coder aDecoder: NSCoder) {
         super.init(coder :aDecoder)
@@ -41,12 +40,19 @@ class CompositedViewController : UIViewController, VCIConnect {
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+
         self.refreshUI()
         connector?.connect("prod.vidyo.io",
                           token: VIDYO_TOKEN,
-                          displayName: "Sachin",
+                          displayName: "Demo User",
                           resourceId: "demoRoom",
-                          connect: self)
+                          connectorIConnect: self)
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        connector?.disable()
+        connector = nil
     }
 
     override func didReceiveMemoryWarning() {
@@ -72,6 +78,9 @@ class CompositedViewController : UIViewController, VCIConnect {
     
     func onFailure(_ reason: VCConnectorFailReason) {
         print("Connection failed \(reason)")
+        DispatchQueue.main.async {
+            self.dismiss(animated: true, completion: nil)
+        }
     }
     
     func onDisconnected(_ reason: VCConnectorDisconnectReason) {
@@ -110,7 +119,4 @@ class CompositedViewController : UIViewController, VCIConnect {
     @IBAction func callClicked(_ sender: Any) {
         connector?.disconnect()
     }
-    
-    
 }
-

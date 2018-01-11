@@ -2,8 +2,7 @@
 //  VidyoIOBridge.h
 //  CustomLayoutSample
 //
-//  Created by Sachin Hegde on 7/24/17.
-//  Copyright © 2017 Sachin Hegde. All rights reserved.
+//  Copyright © 2017 Vidyo. All rights reserved.
 //
 
 #ifndef VidyoIOBridge_h
