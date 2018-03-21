@@ -8,7 +8,7 @@ git clone https://github.com/Vidyo/customview-swift-ios.git
 1. Download the latest Vidyo.io iOS SDK package: https://static.vidyo.io/latest/package/VidyoClient-iOSSDK.zip
 2. Copy the framework located at VidyoClient-iOSSDK/lib/ios/VidyoClientIOS.framework to the CustomLayoutSample directory under where this repository was cloned.
 
-> Note: VidyoClient SDK version 4.1.20.3 or greater is required.
+> Note: VidyoClient SDK version 4.1.21.7 or greater is required.
 > The version of the SDK that you are acquiring is highlighted in the blue box here: https://developer.vidyo.io/documentation/latest
 
 ## Build and Run Application
