@@ -212,7 +212,7 @@ class CustomViewController: UIViewController , VCConnectorIConnect , VCConnector
         
     }
     
-    func onDynamicParticipantChanged(_ participants: NSMutableArray!, remoteCameras: NSMutableArray!) {
+    func onDynamicParticipantChanged(_ participants: NSMutableArray!) {
                 
     }
     
