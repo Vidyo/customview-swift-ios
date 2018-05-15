@@ -17,3 +17,5 @@ git clone https://github.com/Vidyo/customview-swift-ios.git
 3. Connect an iOS device to your computer via USB.
 4. Select the iOS device as the build target of your application.
 5. Build and run the application on the iOS device.
+
+> A step-by-step guide detailing how to create a bridging header to use Vidyo.io Objective-C language bindings in a Swift application can be found here: https://support.vidyo.io/hc/en-us/articles/360004300373-Integrating-Vidyo-io-into-a-Swift-application
