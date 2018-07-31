@@ -60,7 +60,7 @@ class CompositedViewController : UIViewController, VCConnectorIConnect {
         // Dispose of any resources that can be recreated.
     }
     
-    func refreshUI() {
+    @objc func refreshUI() {
         DispatchQueue.main.async {
             self.connector?.showView(at: UnsafeMutableRawPointer(&self.vidyoView),
                                     x: 0,

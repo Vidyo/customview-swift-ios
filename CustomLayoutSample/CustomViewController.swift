@@ -99,11 +99,11 @@ class CustomViewController: UIViewController , VCConnectorIConnect , VCConnector
     // MARK: - Class methods
 
     
-    func rotated() {
+    @objc func rotated() {
         self.refreshUI()
     }
     
-    func toggleSelfView() {
+    @objc func toggleSelfView() {
         self.expandedSelfView = !self.expandedSelfView
         
         UIView.animate(withDuration: 0.5, animations: {

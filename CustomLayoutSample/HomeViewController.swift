@@ -41,12 +41,12 @@ class HomeViewController: UIViewController {
     
     // MARK: - Class methods
     
-    func dismissKeyboard() {
+    @objc func dismissKeyboard() {
         //Causes the view (or one of its embedded text fields) to resign the first responder status.
         view.endEditing(true)
     }
     
-    func keyboardWillShow(notification: NSNotification) {
+    @objc func keyboardWillShow(notification: NSNotification) {
         if let keyboardFrame: NSValue = notification.userInfo?[UIKeyboardFrameEndUserInfoKey] as? NSValue {
             let keyboardRectangle = keyboardFrame.cgRectValue
             if ((inputDetailsView.frame.origin.y + 100) > (UIScreen.main.bounds.height - keyboardRectangle.height)) {
@@ -58,7 +58,7 @@ class HomeViewController: UIViewController {
         }
     }
     
-    func keyboardWillHide(notification: NSNotification) {
+    @objc func keyboardWillHide(notification: NSNotification) {
         if viewMoved > 0 {
             UIView.animate(withDuration: 1, animations: {
                 self.inputDetailsView.frame.origin.y +=  self.viewMoved
