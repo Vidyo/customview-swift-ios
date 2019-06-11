@@ -7,25 +7,53 @@
 
 import UIKit
 
-class CustomViewController: UIViewController , VCConnectorIConnect , VCConnectorIRegisterLocalCameraEventListener , VCConnectorIRegisterRemoteCameraEventListener, VCConnectorIRegisterRemoteMicrophoneEventListener, VCConnectorIRegisterLocalMicrophoneEventListener, VCConnectorIRegisterLocalSpeakerEventListener, VCConnectorIRegisterParticipantEventListener {
+class CustomViewController: UIViewController, VCConnectorIConnect,
+    
+    // Remote devices
+    VCConnectorIRegisterRemoteCameraEventListener,
+    VCConnectorIRegisterRemoteMicrophoneEventListener,
+    
+    // Local devices
+    VCConnectorIRegisterLocalCameraEventListener,
+    VCConnectorIRegisterLocalMicrophoneEventListener,
+    VCConnectorIRegisterLocalSpeakerEventListener,
+    
+    // Participant events
+    VCConnectorIRegisterParticipantEventListener {
 
     // MARK: - Properties and variables
     
-    @IBOutlet weak var remoteViews: UIView!
-    @IBOutlet weak var selfView: UIView!
+    @IBOutlet var remoteViews: UIView!
+    @IBOutlet var selfView: UIView!
+    
     @IBOutlet weak var micButton: UIButton!
     @IBOutlet weak var callButton: UIButton!
     @IBOutlet weak var cameraButton: UIButton!
-    private var connector:VCConnector?
+    
+    private var connector: VCConnector?
+    
     private var remoteViewsMap:[String:UIView] = [:]
     private var numberOfRemoteViews = 0
-    var resourceID          = ""
-    var displayName         = ""
-    var micMuted            = false
-    var cameraMuted         = false
-    var expandedSelfView    = false
+
+    private var micMuted            = false
+    private var cameraMuted         = false
+    private var expandedSelfView    = false
     
-    let VIDYO_TOKEN         = "" // Get a valid token. It is recommended that you create short lived tokens on your applications server and then pass it down here. For details on how to get a token check out - https://developer.vidyo.io/documentation/4-1-19-7/getting-started#Tokens
+    private static let MAX_REMOTE_PARTICIPANT = 4
+    private let HOST = "prod.vidyo.io"
+
+    /* Get a valid token. It is recommended that you create short lived tokens on your applications server and then pass it down here.
+     * For details on how to get a token check out - https://static.vidyo.io/latest/docs/VidyoConnectorDeveloperGuide.html#tokens */
+    private let VIDYO_TOKEN = "REPLACE_WITH_YOUR_TOKEN"
+    
+    var displayName     = "Demo User"
+    var resourceID      = "demoRoom"
+    
+    private var hasDevicesSelected = false
+    private var hasDisconnectionRequested = false
+
+    // Remember selected local camera reference
+    private var lastSelectedCamera: VCLocalCamera?
     
     // MARK: - Viewcontroller override methods
     
@@ -41,8 +69,7 @@ class CustomViewController: UIViewController , VCConnectorIConnect , VCConnector
         selfView.layer.borderWidth  = 1.0
         
         // Setting tap gesture on the self view
-        let tap: UITapGestureRecognizer = UITapGestureRecognizer(target: self,
-                                                                 action: #selector(CustomViewController.toggleSelfView))
+        let tap: UITapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(self.toggleSelfView))
         selfView.addGestureRecognizer(tap)
         
         // Create VidyoIO connector object
@@ -53,8 +80,8 @@ class CustomViewController: UIViewController , VCConnectorIConnect , VCConnector
                                 logFileName: UnsafePointer(""),
                                 userData: 0)
         
+        // When For custom view we need to register to all the device events
         if connector != nil {
-            // When For custom view we need to register to all the device events
             connector?.registerLocalCameraEventListener(self)
             connector?.registerRemoteCameraEventListener(self)
             connector?.registerLocalSpeakerEventListener(self)
@@ -62,46 +89,92 @@ class CustomViewController: UIViewController , VCConnectorIConnect , VCConnector
             connector?.registerParticipantEventListener(self)
         }
         
-        // register for rotation events
-        NotificationCenter.default.addObserver(self,
-                                               selector: #selector(CustomViewController.rotated),
-                                               name: NSNotification.Name.UIDeviceOrientationDidChange,
-                                               object: nil)
-        
+        NotificationCenter.default.addObserver(self, selector: #selector(onOrientationChanged),
+                                               name: .UIDeviceOrientationDidChange, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(willEnterForeground),
+                                               name: .UIApplicationWillEnterForeground, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(didEnterBackground),
+                                               name: .UIApplicationDidEnterBackground, object: nil)
     }
-
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        
         self.refreshUI()
-        connector?.connect("prod.vidyo.io",
+        
+        self.connector?.connect(HOST,
                            token: VIDYO_TOKEN,
-                           displayName: "Demo User",
-                           resourceId: "demoRoom",
+                           displayName: displayName,
+                           resourceId: resourceID,
                            connectorIConnect: self)
     }
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
+        
         connector?.disable()
         connector = nil
-    }
-    
-    override func didReceiveMemoryWarning() {
-        super.didReceiveMemoryWarning()
-        // Dispose of any resources that can be recreated.
     }
     
     override var prefersStatusBarHidden: Bool {
         return true
     }
-    
-    // MARK: - Class methods
 
+    // MARK: - NotificationCenter UI application lifecycle events
     
-    @objc func rotated() {
+    @objc func willEnterForeground() {
+        guard let connector = connector else {
+            return
+        }
+        
+        connector.setMode(.foreground)
+        
+        if !hasDevicesSelected {
+            connector.selectDefaultMicrophone()
+            connector.selectDefaultSpeaker()
+            
+            hasDevicesSelected = true
+        }
+        
+        connector.setCameraPrivacy(cameraMuted)
+        
+        // Reselect local camera. Will trigger onLocalCameraSelected accordingly.
+        if lastSelectedCamera != nil {
+            connector.select(lastSelectedCamera)
+        }
+        
+        connector.setCameraPrivacy(cameraMuted)
+    }
+    
+    @objc func didEnterBackground() {
+        guard let connector = connector else {
+            return
+        }
+        
+        // Release mic and speaker if not on a call
+        if !isInCallingState() {
+            connector.select(nil as VCLocalMicrophone?)
+            connector.select(nil as VCLocalSpeaker?)
+            
+            hasDevicesSelected = false
+        }
+        
+        /* This action is mandatory because camera access is restricted in background.
+         * Camera should be released whenever we are in call state or not.
+         * Specific case for custom layouts since privacy is not shutting down local steam. */
+        connector.setCameraPrivacy(true)
+        connector.select(nil as VCLocalCamera?)
+        // Will release camera. You have to reassing it back later on.
+        connector.hideView(UnsafeMutableRawPointer(&self.selfView))
+
+        connector.setMode(.background)
+    }
+    
+    @objc func onOrientationChanged() {
         self.refreshUI()
     }
+    
+    // MARK: Custom gesture recognizer selector
     
     @objc func toggleSelfView() {
         self.expandedSelfView = !self.expandedSelfView
@@ -122,80 +195,29 @@ class CustomViewController: UIViewController , VCConnectorIConnect , VCConnector
                                      width: UInt32(self.selfView.frame.size.width),
                                      height: UInt32(self.selfView.frame.size.height))
         }, completion:nil)
-        
-    }
-    
-    func refreshUI() {
-        DispatchQueue.main.async {
-            
-            // Updating local (self) view
-            if self.expandedSelfView {
-                self.selfView.frame.size.width  = UIScreen.main.bounds.size.width / 2
-                self.selfView.frame.size.height = UIScreen.main.bounds.size.height / 2
-            } else {
-                self.selfView.frame.size.width  = UIScreen.main.bounds.size.width / 4
-                self.selfView.frame.size.height = UIScreen.main.bounds.size.height / 4
-            }
-            self.selfView.frame.origin.x = UIScreen.main.bounds.size.width - self.selfView.frame.size.width - 10
-            self.selfView.frame.origin.y = UIScreen.main.bounds.size.height - self.selfView.frame.size.height - 60
-            
-            self.connector?.showView(at: UnsafeMutableRawPointer(&self.selfView),
-                                     x: 0,
-                                     y: 0,
-                                     width: UInt32(self.selfView.frame.size.width),
-                                     height: UInt32(self.selfView.frame.size.height))
-            
-            
-            // Updating remote views
-            let refFrames   = RemoteViewLayout.getTileFrames(numberOfTiles: self.numberOfRemoteViews)
-            var index       = 0
-            for var remoteView in self.remoteViewsMap.values {
-                let refFrame        = refFrames[index] as! CGRect
-                remoteView.frame    = refFrame
-                self.connector?.showView(at: UnsafeMutableRawPointer(&remoteView),
-                                         x: 0,
-                                         y: 0,
-                                         width: UInt32(refFrame.size.width),
-                                         height: UInt32(refFrame.size.height))
-                
-                // updating label location
-                for subview in remoteView.subviews
-                {
-                    if let item = subview as? UILabel
-                    {
-                        item.frame = CGRect(x: 0,
-                                            y: 10,
-                                            width: remoteView.frame.width,
-                                            height: 20)
-                    }
-                }
-                index += 1
-                if index >= 4 {
-                    // Showing max 4 remote participants
-                    break
-                }
-            }
-        }
     }
     
     // MARK: - IConnect delegate methods
     
     func onSuccess() {
-        print("Connection Successful")
+        print("Connection Successful.")
+        
+        if (hasDisconnectionRequested) {
+            print("User has requested disconnection during the join. Disconnecting...")
+            connector?.disconnect()
+        }
     }
     
     func onFailure(_ reason: VCConnectorFailReason) {
         print("Connection failed \(reason)")
-        DispatchQueue.main.async {
-            self.dismiss(animated: true, completion: nil)
-        }
+        
+        closeConference()
     }
     
     func onDisconnected(_ reason: VCConnectorDisconnectReason) {
         print("Call Disconnected")
-        DispatchQueue.main.async {
-            self.dismiss(animated: true, completion: nil)
-        }
+        
+        closeConference()
     }
     
     // MARK: - IRegisterParticipantEventListener delegate methods
@@ -269,52 +291,71 @@ class CustomViewController: UIViewController , VCConnectorIConnect , VCConnector
     // MARK: - IRegisterLocalCameraEventListener delegate methods
     
     func onLocalCameraRemoved(_ localCamera: VCLocalCamera!) {
-        self.selfView.isHidden = true
+        DispatchQueue.main.async {
+            [weak self] in
+            
+            guard let this = self else {
+                fatalError("Can't maintain self reference.")
+            }
+            
+            this.selfView.isHidden = true
+        }
     }
     
     func onLocalCameraAdded(_ localCamera: VCLocalCamera!) {
-        if ((localCamera) != nil) {
-            self.selfView.isHidden = false
+    }
+    
+    func onLocalCameraSelected(_ localCamera: VCLocalCamera!) {
+        if (localCamera != nil) {
+            self.lastSelectedCamera = localCamera
+            
             DispatchQueue.main.async {
-                self.connector?.assignView(toLocalCamera: UnsafeMutableRawPointer(&self.selfView),
-                                           localCamera: localCamera,
-                                           displayCropped: true,
-                                           allowZoom: false)
-                self.connector?.showViewLabel(UnsafeMutableRawPointer(&self.selfView),
-                                              showLabel: false)
-                self.connector?.showView(at: UnsafeMutableRawPointer(&self.selfView),
-                                         x: 0,
-                                         y: 0,
-                                         width: UInt32(self.selfView.bounds.size.width),
-                                         height: UInt32(self.selfView.bounds.size.height))
+                [weak self] in
+                
+                guard let this = self else {
+                    fatalError("Can't maintain self reference.")
+                }
+                
+                this.selfView.isHidden = false
+                this.connector?.assignView(toLocalCamera: UnsafeMutableRawPointer(&this.selfView),
+                                     localCamera: localCamera,
+                                     displayCropped: true,
+                                     allowZoom: false)
+                this.connector?.showViewLabel(UnsafeMutableRawPointer(&this.selfView),
+                                        showLabel: false)
+                this.connector?.showView(at: UnsafeMutableRawPointer(&this.selfView),
+                                   x: 0,
+                                   y: 0,
+                                   width: UInt32(this.selfView.bounds.size.width),
+                                   height: UInt32(this.selfView.bounds.size.height))
             }
         }
     }
     
-    func onLocalCameraSelected(_ localCamera: VCLocalCamera!) {
-        
-    }
-    
     func onLocalCameraStateUpdated(_ localCamera: VCLocalCamera!, state: VCDeviceState) {
-        
     }
     
     // MARK: - IRegisterRemoteCameraEventListener delegate methods
     
     func onRemoteCameraAdded(_ remoteCamera: VCRemoteCamera!, participant: VCParticipant!) {
-        
         numberOfRemoteViews += 1
         DispatchQueue.main.async {
+            [weak self] in
+            
+            guard let this = self else {
+                fatalError("Can't maintain self reference.")
+            }
+            
             var newRemoteView = UIView()
             newRemoteView.layer.borderColor = UIColor.black.cgColor
             newRemoteView.layer.borderWidth = 1.0
-            self.remoteViews.addSubview(newRemoteView)
-            self.remoteViewsMap[participant.getId()] = newRemoteView
-            self.connector?.assignView(toRemoteCamera: UnsafeMutableRawPointer(&newRemoteView),
+            this.remoteViews.addSubview(newRemoteView)
+            this.remoteViewsMap[participant.getId()] = newRemoteView
+            this.connector?.assignView(toRemoteCamera: UnsafeMutableRawPointer(&newRemoteView),
                                        remoteCamera: remoteCamera,
                                        displayCropped: true,
                                        allowZoom: true)
-            self.connector?.showViewLabel(UnsafeMutableRawPointer(&newRemoteView),
+            this.connector?.showViewLabel(UnsafeMutableRawPointer(&newRemoteView),
                                           showLabel: false)
             
             // Adding custom UILabel to show the participant name
@@ -327,20 +368,26 @@ class CustomViewController: UIViewController , VCConnectorIConnect , VCConnector
             newParticipantNameLabel.font = newParticipantNameLabel.font.withSize(14)
             newRemoteView.addSubview(newParticipantNameLabel)
             
-            self.refreshUI()
+            this.refreshUI()
         }
     }
     
     func onRemoteCameraRemoved(_ remoteCamera: VCRemoteCamera!, participant: VCParticipant!) {
         numberOfRemoteViews -= 1
         DispatchQueue.main.async {
-            let remoteView = self.remoteViewsMap.removeValue(forKey: participant.getId())
+            [weak self] in
+            
+            guard let this = self else {
+                fatalError("Can't maintain self reference.")
+            }
+            
+            let remoteView = this.remoteViewsMap.removeValue(forKey: participant.getId())
             for view in (remoteView?.subviews)!{
                 view.removeFromSuperview()
             }
             remoteView?.removeFromSuperview()
         
-            self.refreshUI()
+            this.refreshUI()
         }
     }
     
@@ -348,7 +395,7 @@ class CustomViewController: UIViewController , VCConnectorIConnect , VCConnector
         
     }
 
-    // MARK: - Actions
+    // MARK: - UI Actions
     
     @IBAction func cameraClicked(_ sender: Any) {
         if cameraMuted {
@@ -377,17 +424,103 @@ class CustomViewController: UIViewController , VCConnectorIConnect , VCConnector
     }
     
     @IBAction func callClicked(_ sender: Any) {
-        connector?.disconnect()
+        if let state = connector?.getState() {
+            switch state {
+            case .connected:
+                connector?.disconnect()
+            case .idle, .ready:
+                closeConference()
+            default:
+                hasDisconnectionRequested = true
+                print("We are in connecting state. It's better to wait completion and disconnect.")
+            }
+        }
     }
     
-    /*
-    // MARK: - Navigation
-
-    // In a storyboard-based application, you will often want to do a little preparation before navigation
-    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        // Get the new view controller using segue.destinationViewController.
-        // Pass the selected object to the new view controller.
+    // MARK: - Class methods
+    
+    private func refreshUI() {
+        DispatchQueue.main.async {
+            
+            // Updating local (self) view
+            if self.expandedSelfView {
+                self.selfView.frame.size.width  = UIScreen.main.bounds.size.width / 2
+                self.selfView.frame.size.height = UIScreen.main.bounds.size.height / 2
+            } else {
+                self.selfView.frame.size.width  = UIScreen.main.bounds.size.width / 4
+                self.selfView.frame.size.height = UIScreen.main.bounds.size.height / 4
+            }
+            
+            self.selfView.frame.origin.x = UIScreen.main.bounds.size.width - self.selfView.frame.size.width - 10
+            self.selfView.frame.origin.y = UIScreen.main.bounds.size.height - self.selfView.frame.size.height - 60
+            
+            self.connector?.showView(at: UnsafeMutableRawPointer(&self.selfView),
+                                     x: 0,
+                                     y: 0,
+                                     width: UInt32(self.selfView.frame.size.width),
+                                     height: UInt32(self.selfView.frame.size.height))
+            
+            
+            // Updating remote views
+            let refFrames   = RemoteViewLayout.getTileFrames(numberOfTiles: self.numberOfRemoteViews)
+            var index       = 0
+            for var remoteView in self.remoteViewsMap.values {
+                let refFrame        = refFrames[index] as! CGRect
+                remoteView.frame    = refFrame
+                self.connector?.showView(at: UnsafeMutableRawPointer(&remoteView),
+                                         x: 0,
+                                         y: 0,
+                                         width: UInt32(refFrame.size.width),
+                                         height: UInt32(refFrame.size.height))
+                
+                // updating label location
+                for subview in remoteView.subviews
+                {
+                    if let item = subview as? UILabel
+                    {
+                        item.frame = CGRect(x: 0,
+                                            y: 10,
+                                            width: remoteView.frame.width,
+                                            height: 20)
+                    }
+                }
+                
+                index += 1
+                if index >= CustomViewController.MAX_REMOTE_PARTICIPANT {
+                    // Showing max 4 remote participants
+                    break
+                }
+            }
+        }
     }
-    */
-
+    
+    private func isInCallingState() -> Bool {
+        if let connector = connector {
+            let state = connector.getState()
+            return state != .idle && state != .ready
+        }
+        
+        return false
+    }
+    
+    private func isConnected() -> Bool {
+        if let connector = connector {
+            let state = connector.getState()
+            return state == .connected
+        }
+        
+        return false
+    }
+    
+    private func closeConference() {
+        DispatchQueue.main.async {
+            [weak self] in
+            
+            guard let this = self else {
+                fatalError("Can't maintain self reference.")
+            }
+            
+            this.dismiss(animated: true, completion: nil)
+        }
+    }
 }

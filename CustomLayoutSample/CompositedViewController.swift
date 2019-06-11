@@ -28,11 +28,12 @@ class CompositedViewController : UIViewController, VCConnectorIConnect {
     var displayName     = "Demo User"
     var resourceID      = "demoRoom"
     
-    private  var micMuted        = false
+    private var micMuted        = false
     private var cameraMuted     = false
     
     private var hasDevicesSelected = false
-    
+    private var hasDisconnectionRequested = false
+
     required init?(coder aDecoder: NSCoder) {
         super.init(coder :aDecoder)
     }
@@ -100,7 +101,7 @@ class CompositedViewController : UIViewController, VCConnectorIConnect {
             return
         }
         
-        if isInCallState() {
+        if isInCallingState() {
             connector.setCameraPrivacy(true)
         } else {
             connector.select(nil as VCLocalCamera?)
@@ -120,7 +121,12 @@ class CompositedViewController : UIViewController, VCConnectorIConnect {
     // MARK: - IConnect delegate methods
     
     func onSuccess() {
-        print("Connection Successful")
+        print("Connection Successful.")
+        
+        if (hasDisconnectionRequested) {
+            print("User has requested disconnection during the join. Disconnecting...")
+            connector?.disconnect()
+        }
     }
     
     func onFailure(_ reason: VCConnectorFailReason) {
@@ -160,10 +166,16 @@ class CompositedViewController : UIViewController, VCConnectorIConnect {
     }
     
     @IBAction func callClicked(_ sender: Any) {
-        if isInCallState() {
-            connector?.disconnect()
-        } else {
-            closeConference()
+        if let state = connector?.getState() {
+            switch state {
+            case .connected:
+                connector?.disconnect()
+            case .idle, .ready:
+                closeConference()
+            default:
+                hasDisconnectionRequested = true
+                print("We are in connecting state. It's better to wait completion and disconnect.")
+            }
         }
     }
     
@@ -187,10 +199,10 @@ class CompositedViewController : UIViewController, VCConnectorIConnect {
     
     // MARK: Private functions
     
-    private func isInCallState() -> Bool {
+    private func isInCallingState() -> Bool {
         if let connector = connector {
             let state = connector.getState()
-            return state != .idle || state != .ready
+            return state != .idle && state != .ready
         }
         
         return false
