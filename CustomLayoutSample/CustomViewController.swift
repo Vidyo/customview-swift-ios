@@ -50,7 +50,6 @@ class CustomViewController: UIViewController, VCConnectorIConnect,
     var resourceID      = "demoRoom"
     
     private var hasDevicesSelected = false
-    private var hasDisconnectionRequested = false
 
     // Remember selected local camera reference
     private var lastSelectedCamera: VCLocalCamera?
@@ -109,9 +108,9 @@ class CustomViewController: UIViewController, VCConnectorIConnect,
                            connectorIConnect: self)
     }
 
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-        
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+
         connector?.disable()
         connector = nil
     }
@@ -136,14 +135,7 @@ class CustomViewController: UIViewController, VCConnectorIConnect,
             hasDevicesSelected = true
         }
         
-        connector.setCameraPrivacy(cameraMuted)
-        
-        // Reselect local camera. Will trigger onLocalCameraSelected accordingly.
-        if lastSelectedCamera != nil {
-            connector.select(lastSelectedCamera)
-        }
-        
-        connector.setCameraPrivacy(cameraMuted)
+        hideShowPreview(cameraMuted)
     }
     
     @objc func didEnterBackground() {
@@ -159,13 +151,7 @@ class CustomViewController: UIViewController, VCConnectorIConnect,
             hasDevicesSelected = false
         }
         
-        /* This action is mandatory because camera access is restricted in background.
-         * Camera should be released whenever we are in call state or not.
-         * Specific case for custom layouts since privacy is not shutting down local steam. */
-        connector.setCameraPrivacy(true)
-        connector.select(nil as VCLocalCamera?)
-        // Will release camera. You have to reassing it back later on.
-        connector.hideView(UnsafeMutableRawPointer(&self.selfView))
+        hideShowPreview(true /* always mute camera stream for background mode */)
 
         connector.setMode(.background)
     }
@@ -201,11 +187,6 @@ class CustomViewController: UIViewController, VCConnectorIConnect,
     
     func onSuccess() {
         print("Connection Successful.")
-        
-        if (hasDisconnectionRequested) {
-            print("User has requested disconnection during the join. Disconnecting...")
-            connector?.disconnect()
-        }
     }
     
     func onFailure(_ reason: VCConnectorFailReason) {
@@ -295,7 +276,8 @@ class CustomViewController: UIViewController, VCConnectorIConnect,
             [weak self] in
             
             guard let this = self else {
-                fatalError("Can't maintain self reference.")
+                print("Can't maintain self reference.")
+                return
             }
             
             this.selfView.isHidden = true
@@ -313,7 +295,8 @@ class CustomViewController: UIViewController, VCConnectorIConnect,
                 [weak self] in
                 
                 guard let this = self else {
-                    fatalError("Can't maintain self reference.")
+                    print("Can't maintain self reference.")
+                    return
                 }
                 
                 this.selfView.isHidden = false
@@ -343,7 +326,8 @@ class CustomViewController: UIViewController, VCConnectorIConnect,
             [weak self] in
             
             guard let this = self else {
-                fatalError("Can't maintain self reference.")
+                print("Can't maintain self reference.")
+                return
             }
             
             var newRemoteView = UIView()
@@ -378,7 +362,8 @@ class CustomViewController: UIViewController, VCConnectorIConnect,
             [weak self] in
             
             guard let this = self else {
-                fatalError("Can't maintain self reference.")
+                print("Can't maintain self reference.")
+                return
             }
             
             let remoteView = this.remoteViewsMap.removeValue(forKey: participant.getId())
@@ -398,42 +383,23 @@ class CustomViewController: UIViewController, VCConnectorIConnect,
     // MARK: - UI Actions
     
     @IBAction func cameraClicked(_ sender: Any) {
-        if cameraMuted {
-            cameraMuted = !cameraMuted
-            self.cameraButton.setImage(UIImage(named: "cameraOn.png"), for: .normal)
-            connector?.setCameraPrivacy(cameraMuted)
-            self.selfView.isHidden = cameraMuted
-        } else {
-            cameraMuted = !cameraMuted
-            self.cameraButton.setImage(UIImage(named: "cameraOff.png"), for: .normal)
-            connector?.setCameraPrivacy(cameraMuted)
-            self.selfView.isHidden = cameraMuted
-        }
+        cameraMuted = !cameraMuted
+        self.cameraButton.setImage(UIImage(named: cameraMuted ? "cameraOff.png" : "cameraOn.png"), for: .normal)
+        
+        hideShowPreview(cameraMuted)
     }
     
     @IBAction func micClicked(_ sender: Any) {
-        if micMuted {
-            micMuted = !micMuted
-            self.micButton.setImage(UIImage(named: "microphoneOn.png"), for: .normal)
-            connector?.setMicrophonePrivacy(micMuted)
-        } else {
-            micMuted = !micMuted
-            self.micButton.setImage(UIImage(named: "microphoneOff.png"), for: .normal)
-            connector?.setMicrophonePrivacy(micMuted)
-        }
+        micMuted = !micMuted
+        self.micButton.setImage(UIImage(named: micMuted ? "microphoneOff.png" : "microphoneOn.png"), for: .normal)
+        connector?.setMicrophonePrivacy(micMuted)
     }
     
     @IBAction func callClicked(_ sender: Any) {
-        if let state = connector?.getState() {
-            switch state {
-            case .connected:
-                connector?.disconnect()
-            case .idle, .ready:
-                closeConference()
-            default:
-                hasDisconnectionRequested = true
-                print("We are in connecting state. It's better to wait completion and disconnect.")
-            }
+        if isInCallingState() {
+            connector?.disconnect()
+        } else {
+            closeConference()
         }
     }
     
@@ -494,19 +460,30 @@ class CustomViewController: UIViewController, VCConnectorIConnect,
         }
     }
     
+    private func hideShowPreview(_ cameraMuted: Bool) {
+        connector?.setCameraPrivacy(cameraMuted)
+        self.selfView.isHidden = cameraMuted
+        
+        if (cameraMuted) {
+            /* This action is mandatory because camera access is restricted in background.
+             * Camera should be released whenever we are in call state or not.
+             * Specific case for custom layouts since privacy is not shutting down local steam. */
+            connector?.setCameraPrivacy(true)
+            connector?.select(nil as VCLocalCamera?)
+            // Will release camera. You have to reassing it back later on.
+            connector?.hideView(UnsafeMutableRawPointer(&self.selfView))
+        } else {
+            // Reselect local camera. Will trigger onLocalCameraSelected accordingly.
+            if lastSelectedCamera != nil {
+                connector?.select(lastSelectedCamera)
+            }
+        }
+    }
+    
     private func isInCallingState() -> Bool {
         if let connector = connector {
             let state = connector.getState()
             return state != .idle && state != .ready
-        }
-        
-        return false
-    }
-    
-    private func isConnected() -> Bool {
-        if let connector = connector {
-            let state = connector.getState()
-            return state == .connected
         }
         
         return false
@@ -517,7 +494,8 @@ class CustomViewController: UIViewController, VCConnectorIConnect,
             [weak self] in
             
             guard let this = self else {
-                fatalError("Can't maintain self reference.")
+                print("Can't maintain self reference.")
+                return
             }
             
             this.dismiss(animated: true, completion: nil)

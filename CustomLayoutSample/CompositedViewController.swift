@@ -32,7 +32,6 @@ class CompositedViewController : UIViewController, VCConnectorIConnect {
     private var cameraMuted     = false
     
     private var hasDevicesSelected = false
-    private var hasDisconnectionRequested = false
 
     required init?(coder aDecoder: NSCoder) {
         super.init(coder :aDecoder)
@@ -122,60 +121,39 @@ class CompositedViewController : UIViewController, VCConnectorIConnect {
     
     func onSuccess() {
         print("Connection Successful.")
-        
-        if (hasDisconnectionRequested) {
-            print("User has requested disconnection during the join. Disconnecting...")
-            connector?.disconnect()
-        }
     }
     
     func onFailure(_ reason: VCConnectorFailReason) {
         print("Connection failed \(reason)")
+        
         closeConference()
     }
     
     func onDisconnected(_ reason: VCConnectorDisconnectReason) {
         print("Call Disconnected")
+        
         closeConference()
     }
     
     // MARK: - UI Actions
     
     @IBAction func cameraClicked(_ sender: Any) {
-        if cameraMuted {
-            cameraMuted = !cameraMuted
-            self.cameraButton.setImage(UIImage(named: "cameraOn.png"), for: .normal)
-            connector?.setCameraPrivacy(cameraMuted)
-        } else {
-            cameraMuted = !cameraMuted
-            self.cameraButton.setImage(UIImage(named: "cameraOff.png"), for: .normal)
-            connector?.setCameraPrivacy(cameraMuted)
-        }
+        cameraMuted = !cameraMuted
+        self.cameraButton.setImage(UIImage(named: cameraMuted ? "cameraOff.png" : "cameraOn.png"), for: .normal)
+        connector?.setCameraPrivacy(cameraMuted)
     }
     
     @IBAction func micClicked(_ sender: Any) {
-        if micMuted {
-            micMuted = !micMuted
-            self.micButton.setImage(UIImage(named: "microphoneOn.png"), for: .normal)
-            connector?.setMicrophonePrivacy(micMuted)
-        } else {
-            micMuted = !micMuted
-            self.micButton.setImage(UIImage(named: "microphoneOff.png"), for: .normal)
-            connector?.setMicrophonePrivacy(micMuted)
-        }
+        micMuted = !micMuted
+        self.micButton.setImage(UIImage(named: micMuted ? "microphoneOff.png" : "microphoneOn.png"), for: .normal)
+        connector?.setMicrophonePrivacy(micMuted)
     }
     
     @IBAction func callClicked(_ sender: Any) {
-        if let state = connector?.getState() {
-            switch state {
-            case .connected:
-                connector?.disconnect()
-            case .idle, .ready:
-                closeConference()
-            default:
-                hasDisconnectionRequested = true
-                print("We are in connecting state. It's better to wait completion and disconnect.")
-            }
+        if isInCallingState() {
+            connector?.disconnect()
+        } else {
+            closeConference()
         }
     }
     
