@@ -46,8 +46,8 @@ class CustomViewController: UIViewController, VCConnectorIConnect,
      * For details on how to get a token check out - https://static.vidyo.io/latest/docs/VidyoConnectorDeveloperGuide.html#tokens */
     private let VIDYO_TOKEN = "REPLACE_WITH_YOUR_TOKEN"
     
-    var displayName     = "Demo User"
-    var resourceID      = "demoRoom"
+    var displayName = "Demo User"
+    var resourceID  = "demoRoom"
     
     private var hasDevicesSelected = false
 
@@ -111,7 +111,9 @@ class CustomViewController: UIViewController, VCConnectorIConnect,
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
 
-        connector?.disable()
+        connector?.select(nil as VCLocalCamera?)
+        connector?.select(nil as VCLocalMicrophone?)
+        connector?.select(nil as VCLocalSpeaker?)
         connector = nil
     }
     
@@ -187,6 +189,11 @@ class CustomViewController: UIViewController, VCConnectorIConnect,
     
     func onSuccess() {
         print("Connection Successful.")
+
+        // After successfully connecting, enable the button which allows user to disconnect.
+        DispatchQueue.main.async {
+            self.callButton.isEnabled = true;
+        }
     }
     
     func onFailure(_ reason: VCConnectorFailReason) {

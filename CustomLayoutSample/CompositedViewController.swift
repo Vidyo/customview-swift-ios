@@ -16,20 +16,20 @@ class CompositedViewController : UIViewController, VCConnectorIConnect {
     @IBOutlet weak var micButton: UIButton!
     @IBOutlet weak var callButton: UIButton!
     @IBOutlet weak var cameraButton: UIButton!
-    
+
     private var connector: VCConnector?
-    
+
     private let HOST = "prod.vidyo.io"
-    
+
     /* Get a valid token. It is recommended that you create short lived tokens on your applications server and then pass it down here.
      * For details on how to get a token check out - https://static.vidyo.io/latest/docs/VidyoConnectorDeveloperGuide.html#tokens */
     private let VIDYO_TOKEN = "REPLACE_WITH_YOUR_TOKEN"
-    
-    var displayName     = "Demo User"
-    var resourceID      = "demoRoom"
-    
-    private var micMuted        = false
-    private var cameraMuted     = false
+
+    var displayName = "Demo User"
+    var resourceID  = "demoRoom"
+
+    private var micMuted    = false
+    private var cameraMuted = false
     
     private var hasDevicesSelected = false
 
@@ -70,8 +70,10 @@ class CompositedViewController : UIViewController, VCConnectorIConnect {
     
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
-        
-        connector?.disable()
+
+        connector?.select(nil as VCLocalCamera?)
+        connector?.select(nil as VCLocalMicrophone?)
+        connector?.select(nil as VCLocalSpeaker?)
         connector = nil
     }
     
@@ -121,6 +123,11 @@ class CompositedViewController : UIViewController, VCConnectorIConnect {
     
     func onSuccess() {
         print("Connection Successful.")
+
+        // After successfully connecting, enable the button which allows user to disconnect.
+        DispatchQueue.main.async {
+            self.callButton.isEnabled = true;
+        }
     }
     
     func onFailure(_ reason: VCConnectorFailReason) {
