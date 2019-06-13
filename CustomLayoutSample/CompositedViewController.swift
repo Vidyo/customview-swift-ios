@@ -48,12 +48,17 @@ class CompositedViewController : UIViewController, VCConnectorIConnect {
                                 logFileName: UnsafePointer(""),
                                 userData: 0)
         
+        // Orientation change observer
         NotificationCenter.default.addObserver(self, selector: #selector(onOrientationChanged),
                                                name: .UIDeviceOrientationDidChange, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(willEnterForeground),
-                                               name: .UIApplicationWillEnterForeground, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(didEnterBackground),
-                                               name: .UIApplicationDidEnterBackground, object: nil)
+        
+        // Foreground mode observer
+        NotificationCenter.default.addObserver(self, selector: #selector(onForeground),
+                                               name: .UIApplicationDidBecomeActive, object: nil)
+        
+        // Background mode observer
+        NotificationCenter.default.addObserver(self, selector: #selector(onBackground),
+                                               name: .UIApplicationWillResignActive, object: nil)
     }
     
     override func viewDidAppear(_ animated: Bool) {
@@ -75,11 +80,13 @@ class CompositedViewController : UIViewController, VCConnectorIConnect {
         connector?.select(nil as VCLocalMicrophone?)
         connector?.select(nil as VCLocalSpeaker?)
         connector = nil
+        
+        NotificationCenter.default.removeObserver(self)
     }
     
     // MARK: - NotificationCenter observers: UI application lifecycle events
     
-    @objc func willEnterForeground() {
+    @objc func onForeground() {
         guard let connector = connector else {
             return
         }
@@ -87,17 +94,17 @@ class CompositedViewController : UIViewController, VCConnectorIConnect {
         connector.setMode(.foreground)
         
         if !hasDevicesSelected {
+            hasDevicesSelected = true
+
             connector.selectDefaultCamera()
             connector.selectDefaultMicrophone()
             connector.selectDefaultSpeaker()
-            
-            hasDevicesSelected = true
         }
         
         connector.setCameraPrivacy(cameraMuted)
     }
     
-    @objc func didEnterBackground() {
+    @objc func onBackground() {
         guard let connector = connector else {
             return
         }
@@ -105,11 +112,11 @@ class CompositedViewController : UIViewController, VCConnectorIConnect {
         if isInCallingState() {
             connector.setCameraPrivacy(true)
         } else {
+            hasDevicesSelected = false
+
             connector.select(nil as VCLocalCamera?)
             connector.select(nil as VCLocalMicrophone?)
             connector.select(nil as VCLocalSpeaker?)
-            
-            hasDevicesSelected = false
         }
         
         connector.setMode(.background)
