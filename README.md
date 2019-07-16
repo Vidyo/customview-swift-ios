@@ -1,8 +1,8 @@
-# customview-swift-ios
+# vidyo.io-customview-swift-ios
 Vidyo.io Swift iOS app featuring ability to switch between composited and custom layouts. This app shows how to integrate your swift project with Vidyo.io. It also shows how to use custom layout option where you can choose to display each remote participant seperately. 
 
 ## Clone Repository
-git clone https://github.com/Vidyo/customview-swift-ios.git
+git clone https://github.com/Vidyo/vidyo.io-customview-swift-ios.git
 
 ## Acquire Framework
 1. Download the latest Vidyo.io iOS SDK package: https://static.vidyo.io/latest/package/VidyoClient-iOSSDK.zip
