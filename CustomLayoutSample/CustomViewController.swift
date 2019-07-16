@@ -531,8 +531,4 @@ class CustomViewController: UIViewController, VCConnectorIConnect,
             this.dismiss(animated: true, completion: nil)
         }
     }
-    
-    deinit {
-        print("Controller deinitialized.")
-    }
 }
