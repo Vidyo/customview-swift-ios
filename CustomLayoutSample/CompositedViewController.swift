@@ -79,6 +79,10 @@ class CompositedViewController : UIViewController, VCConnectorIConnect {
         connector?.select(nil as VCLocalCamera?)
         connector?.select(nil as VCLocalMicrophone?)
         connector?.select(nil as VCLocalSpeaker?)
+        
+        connector?.hideView(UnsafeMutableRawPointer(&vidyoView))
+        connector?.disable()
+        
         connector = nil
         
         NotificationCenter.default.removeObserver(self)
