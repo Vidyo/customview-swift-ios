@@ -115,10 +115,24 @@ class CustomViewController: UIViewController, VCConnectorIConnect,
 
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
+        
+        connector?.unregisterLocalCameraEventListener()
+        connector?.unregisterRemoteCameraEventListener()
+        connector?.unregisterLocalSpeakerEventListener()
+        connector?.unregisterLocalMicrophoneEventListener()
+        connector?.unregisterParticipantEventListener()
 
         connector?.select(nil as VCLocalCamera?)
         connector?.select(nil as VCLocalMicrophone?)
         connector?.select(nil as VCLocalSpeaker?)
+        
+        for var remoteView in self.remoteViewsMap.values {
+            connector?.hideView(UnsafeMutableRawPointer(&remoteView))
+        }
+        
+        connector?.hideView(UnsafeMutableRawPointer(&self.selfView))
+        connector?.disable()
+        
         connector = nil
         
         NotificationCenter.default.removeObserver(self)
@@ -380,7 +394,9 @@ class CustomViewController: UIViewController, VCConnectorIConnect,
                 return
             }
             
-            let remoteView = this.remoteViewsMap.removeValue(forKey: participant.getId())
+            var remoteView = this.remoteViewsMap.removeValue(forKey: participant.getId())
+            this.connector?.hideView(UnsafeMutableRawPointer(&remoteView))
+
             for view in (remoteView?.subviews)!{
                 view.removeFromSuperview()
             }
